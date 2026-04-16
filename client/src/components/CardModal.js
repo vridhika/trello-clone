@@ -422,4 +422,4 @@ const btnPrimary = { background: '#0079bf', color: 'white', border: 'none', bord
 const btnSecondary = { background: 'transparent', color: '#5e6c84', border: '1px solid #dfe1e6', borderRadius: '4px', padding: '6px 14px', fontSize: '14px', cursor: 'pointer' };
 const sidebarBtn = { width: '100%', textAlign: 'left', background: '#f4f5f7', color: '#172b4d', border: 'none', borderRadius: '4px', padding: '8px 10px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' };
 
-export default CardModal;
+export default CardModal; 

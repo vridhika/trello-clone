@@ -158,4 +158,4 @@ function ArchivedCardRow({ card, onRestore, onDelete, isRestoring, isDeleting })
   );
 }
 
-export default ArchivePage;
+export default ArchivePage; 

@@ -328,4 +328,4 @@ function FilterRow({ label, desc, active, onClick }) {
 
 const filterSectionLabel = { fontSize: '11px', fontWeight: '700', color: '#5e6c84', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' };
 
-export default BoardPage;
+export default BoardPage; 
