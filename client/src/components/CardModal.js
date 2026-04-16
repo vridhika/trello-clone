@@ -3,7 +3,8 @@ import {
   getCard, updateCard, deleteCard,
   addLabel, removeLabel,
   addChecklist, addChecklistItem, toggleChecklistItem,
-  getMembers, assignMember, removeMember
+  getMembers, assignMember, removeMember,
+  archiveCard,
 } from '../api';
 
 const LABEL_COLORS = [
@@ -19,7 +20,7 @@ const LABEL_COLORS = [
   { color: '#344563', name: 'Black' },
 ];
 
-function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
+function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }) {
   const [card, setCard] = useState(initialCard);
   const [title, setTitle] = useState(initialCard.title);
   const [description, setDescription] = useState(initialCard.description || '');
@@ -35,22 +36,39 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     loadCard();
     loadMembers();
   }, []);
 
+  const notifyUpdate = (overrides = {}) => {
+    const updated = {
+      ...card,
+      title,
+      description,
+      due_date: dueDate || null,
+      labels,
+      members,
+      checklists,
+      ...overrides,
+    };
+    onUpdate && onUpdate(updated);
+  };
+
   const loadCard = async () => {
     try {
       const res = await getCard(initialCard.id);
-      setCard(res.data);
-      setTitle(res.data.title);
-      setDescription(res.data.description || '');
-      setDueDate(res.data.due_date ? res.data.due_date.split('T')[0] : '');
-      setLabels(res.data.labels || []);
-      setChecklists(res.data.checklists || []);
-      setMembers(res.data.members || []);
+      const data = res.data;
+      setCard(data);
+      setTitle(data.title);
+      setDescription(data.description || '');
+      setDueDate(data.due_date ? data.due_date.split('T')[0] : '');
+      setLabels(data.labels || []);
+      setChecklists(data.checklists || []);
+      setMembers(data.members || []);
+      onUpdate && onUpdate(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -71,31 +89,37 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
     if (!title.trim()) return;
     await updateCard(card.id, { title });
     setEditingTitle(false);
-    onUpdate && onUpdate({ ...card, title });
+    notifyUpdate({ title });
   };
 
   const handleSaveDescription = async () => {
     await updateCard(card.id, { description });
     setEditingDesc(false);
+    notifyUpdate({ description });
   };
 
   const handleSaveDueDate = async (val) => {
     setDueDate(val);
     await updateCard(card.id, { due_date: val || null });
+    notifyUpdate({ due_date: val || null });
   };
 
   const handleAddLabel = async (color, name) => {
     try {
       const res = await addLabel(card.id, { color, text: name });
-      setLabels(prev => [...prev, res.data]);
+      const newLabels = [...labels, res.data];
+      setLabels(newLabels);
       setShowLabelPicker(false);
+      notifyUpdate({ labels: newLabels });
     } catch (err) { console.error(err); }
   };
 
   const handleRemoveLabel = async (labelId) => {
     try {
       await removeLabel(labelId);
-      setLabels(prev => prev.filter(l => l.id !== labelId));
+      const newLabels = labels.filter(l => l.id !== labelId);
+      setLabels(newLabels);
+      notifyUpdate({ labels: newLabels });
     } catch (err) { console.error(err); }
   };
 
@@ -103,8 +127,10 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
     if (!newChecklistTitle.trim()) return;
     try {
       const res = await addChecklist(card.id, { title: newChecklistTitle });
-      setChecklists(prev => [...prev, { ...res.data, items: [] }]);
+      const newChecklists = [...checklists, { ...res.data, items: [] }];
+      setChecklists(newChecklists);
       setNewChecklistTitle('');
+      notifyUpdate({ checklists: newChecklists });
     } catch (err) { console.error(err); }
   };
 
@@ -113,51 +139,72 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
     if (!text?.trim()) return;
     try {
       const res = await addChecklistItem(checklistId, { text });
-      setChecklists(prev => prev.map(cl =>
+      const newChecklists = checklists.map(cl =>
         cl.id === checklistId
           ? { ...cl, items: [...(cl.items || []), res.data] }
           : cl
-      ));
+      );
+      setChecklists(newChecklists);
       setNewItemTexts(prev => ({ ...prev, [checklistId]: '' }));
+      notifyUpdate({ checklists: newChecklists });
     } catch (err) { console.error(err); }
   };
 
   const handleToggleItem = async (checklistId, itemId, is_completed) => {
     try {
       await toggleChecklistItem(itemId, { is_completed: !is_completed });
-      setChecklists(prev => prev.map(cl =>
+      const newChecklists = checklists.map(cl =>
         cl.id === checklistId
-          ? {
-              ...cl,
-              items: cl.items.map(item =>
-                item.id === itemId ? { ...item, is_completed: !is_completed } : item
-              )
-            }
+          ? { ...cl, items: cl.items.map(item => item.id === itemId ? { ...item, is_completed: !is_completed } : item) }
           : cl
-      ));
+      );
+      setChecklists(newChecklists);
+      notifyUpdate({ checklists: newChecklists });
     } catch (err) { console.error(err); }
   };
 
   const handleAssignMember = async (memberId) => {
     const already = members.find(m => m.id === memberId);
     try {
+      let newMembers;
       if (already) {
         await removeMember(card.id, memberId);
-        setMembers(prev => prev.filter(m => m.id !== memberId));
+        newMembers = members.filter(m => m.id !== memberId);
       } else {
         await assignMember(card.id, { member_id: memberId });
         const member = allMembers.find(m => m.id === memberId);
-        setMembers(prev => [...prev, member]);
+        newMembers = [...members, member];
       }
+      setMembers(newMembers);
+      notifyUpdate({ members: newMembers });
     } catch (err) { console.error(err); }
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Delete this card?')) {
+    if (window.confirm('Delete this card? This cannot be undone.')) {
       await deleteCard(card.id);
       onDelete && onDelete(card.id);
       onClose();
     }
+  };
+
+  const handleArchive = async () => {
+    if (window.confirm('Archive this card? You can restore it later from the Archive.')) {
+      setArchiving(true);
+      try {
+        await archiveCard(card.id);
+        onArchive && onArchive(card.id);
+        onClose();
+      } catch (err) {
+        console.error('Archive failed:', err);
+        setArchiving(false);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    notifyUpdate();
+    onClose();
   };
 
   const completedItems = checklists.reduce((acc, cl) => acc + (cl.items || []).filter(i => i.is_completed).length, 0);
@@ -173,7 +220,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
   );
 
   return (
-    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
       <div style={modalStyle}>
 
         {/* HEADER */}
@@ -195,7 +242,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
               </h2>
             )}
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#5e6c84', cursor: 'pointer', padding: '4px 8px' }}>✕</button>
+          <button onClick={handleClose} style={{ background: 'transparent', border: 'none', fontSize: '20px', color: '#5e6c84', cursor: 'pointer', padding: '4px 8px' }}>✕</button>
         </div>
 
         <div style={{ display: 'flex', gap: '16px' }}>
@@ -212,17 +259,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
                       key={l.id}
                       onClick={() => handleRemoveLabel(l.id)}
                       title="Click to remove"
-                      style={{
-                        background: l.color,
-                        color: 'white',
-                        borderRadius: '4px',
-                        padding: '4px 12px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        minWidth: '40px',
-                        display: 'inline-block'
-                      }}>
+                      style={{ background: l.color, color: 'white', borderRadius: '4px', padding: '4px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', minWidth: '40px', display: 'inline-block' }}>
                       {l.text || '\u00A0'}
                     </span>
                   ))}
@@ -236,15 +273,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
                 <div style={sectionLabel}>Members</div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {members.map(m => (
-                    <div
-                      key={m.id}
-                      title={m.name}
-                      style={{
-                        width: '32px', height: '32px', borderRadius: '50%',
-                        background: '#0079bf', color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: '700', fontSize: '14px'
-                      }}>
+                    <div key={m.id} title={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#0079bf', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px' }}>
                       {m.name[0].toUpperCase()}
                     </div>
                   ))}
@@ -256,11 +285,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
             {dueDate && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={sectionLabel}>Due Date</div>
-                <span style={{
-                  background: new Date(dueDate) < new Date() ? '#eb5a46' : '#61bd4f',
-                  color: 'white', borderRadius: '4px', padding: '4px 10px',
-                  fontSize: '13px', fontWeight: '600'
-                }}>
+                <span style={{ background: new Date(dueDate) < new Date() ? '#eb5a46' : '#61bd4f', color: 'white', borderRadius: '4px', padding: '4px 10px', fontSize: '13px', fontWeight: '600' }}>
                   📅 {new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
@@ -272,8 +297,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
               {editingDesc ? (
                 <div>
                   <textarea
-                    autoFocus
-                    value={description}
+                    autoFocus value={description}
                     onChange={e => setDescription(e.target.value)}
                     rows={4}
                     style={{ width: '100%', padding: '8px', border: '2px solid #0079bf', borderRadius: '4px', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
@@ -284,9 +308,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
                   </div>
                 </div>
               ) : (
-                <div
-                  onClick={() => setEditingDesc(true)}
-                  style={{ minHeight: '60px', padding: '8px', background: '#f4f5f7', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', color: description ? '#172b4d' : '#a5adba' }}>
+                <div onClick={() => setEditingDesc(true)} style={{ minHeight: '60px', padding: '8px', background: '#f4f5f7', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', color: description ? '#172b4d' : '#a5adba' }}>
                   {description || 'Add a description...'}
                 </div>
               )}
@@ -306,15 +328,8 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
                 )}
                 {(cl.items || []).map(item => (
                   <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={!!item.is_completed}
-                      onChange={() => handleToggleItem(cl.id, item.id, item.is_completed)}
-                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                    />
-                    <span style={{ fontSize: '14px', textDecoration: item.is_completed ? 'line-through' : 'none', color: item.is_completed ? '#a5adba' : '#172b4d' }}>
-                      {item.text}
-                    </span>
+                    <input type="checkbox" checked={!!item.is_completed} onChange={() => handleToggleItem(cl.id, item.id, item.is_completed)} style={{ cursor: 'pointer', width: '16px', height: '16px' }} />
+                    <span style={{ fontSize: '14px', textDecoration: item.is_completed ? 'line-through' : 'none', color: item.is_completed ? '#a5adba' : '#172b4d' }}>{item.text}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
@@ -329,39 +344,23 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
                 </div>
               </div>
             ))}
-
           </div>
 
           {/* RIGHT SIDEBAR */}
           <div style={{ width: '168px' }}>
             <div style={sectionLabel}>Add to card</div>
 
-            {/* LABELS BUTTON */}
+            {/* LABELS */}
             <div style={{ position: 'relative', marginBottom: '8px' }}>
-              <button
-                onClick={() => { setShowLabelPicker(!showLabelPicker); setShowMemberPicker(false); }}
-                style={sidebarBtn}>
+              <button onClick={() => { setShowLabelPicker(!showLabelPicker); setShowMemberPicker(false); }} style={sidebarBtn}>
                 🏷 Labels
               </button>
               {showLabelPicker && (
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%',
-                  background: 'white', border: '1px solid #dfe1e6',
-                  borderRadius: '8px', padding: '12px', zIndex: 100,
-                  width: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                }}>
+                <div style={{ position: 'absolute', right: 0, top: '100%', background: 'white', border: '1px solid #dfe1e6', borderRadius: '8px', padding: '12px', zIndex: 100, width: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                   <div style={{ fontWeight: '700', fontSize: '12px', marginBottom: '10px', color: '#5e6c84' }}>Select a color</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                     {LABEL_COLORS.map(l => (
-                      <div
-                        key={l.color}
-                        onClick={() => handleAddLabel(l.color, l.name)}
-                        style={{
-                          background: l.color, borderRadius: '4px',
-                          padding: '8px', cursor: 'pointer',
-                          color: 'white', fontSize: '12px',
-                          fontWeight: '700', textAlign: 'center'
-                        }}>
+                      <div key={l.color} onClick={() => handleAddLabel(l.color, l.name)} style={{ background: l.color, borderRadius: '4px', padding: '8px', cursor: 'pointer', color: 'white', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}>
                         {l.name}
                       </div>
                     ))}
@@ -370,40 +369,20 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
               )}
             </div>
 
-            {/* MEMBERS BUTTON */}
+            {/* MEMBERS */}
             <div style={{ position: 'relative', marginBottom: '8px' }}>
-              <button
-                onClick={() => { setShowMemberPicker(!showMemberPicker); setShowLabelPicker(false); }}
-                style={sidebarBtn}>
+              <button onClick={() => { setShowMemberPicker(!showMemberPicker); setShowLabelPicker(false); }} style={sidebarBtn}>
                 👤 Members
               </button>
               {showMemberPicker && (
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%',
-                  background: 'white', border: '1px solid #dfe1e6',
-                  borderRadius: '8px', padding: '12px', zIndex: 100,
-                  width: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                }}>
+                <div style={{ position: 'absolute', right: 0, top: '100%', background: 'white', border: '1px solid #dfe1e6', borderRadius: '8px', padding: '12px', zIndex: 100, width: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                   <div style={{ fontWeight: '700', fontSize: '12px', marginBottom: '10px', color: '#5e6c84' }}>Assign members</div>
                   {allMembers.length === 0 && <div style={{ fontSize: '13px', color: '#a5adba' }}>No members found</div>}
                   {allMembers.map(m => {
                     const assigned = members.find(am => am.id === m.id);
                     return (
-                      <div
-                        key={m.id}
-                        onClick={() => handleAssignMember(m.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '8px',
-                          padding: '6px', borderRadius: '4px', cursor: 'pointer',
-                          background: assigned ? '#e4f0f6' : 'transparent',
-                          marginBottom: '4px'
-                        }}>
-                        <div style={{
-                          width: '28px', height: '28px', borderRadius: '50%',
-                          background: '#0079bf', color: 'white',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: '700', fontSize: '13px', flexShrink: 0
-                        }}>
+                      <div key={m.id} onClick={() => handleAssignMember(m.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', borderRadius: '4px', cursor: 'pointer', background: assigned ? '#e4f0f6' : 'transparent', marginBottom: '4px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0079bf', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '13px', flexShrink: 0 }}>
                           {m.name[0].toUpperCase()}
                         </div>
                         <span style={{ fontSize: '13px', color: '#172b4d' }}>{m.name}</span>
@@ -418,12 +397,7 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
             {/* DUE DATE */}
             <div style={{ marginBottom: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#5e6c84', marginBottom: '4px' }}>📅 Due Date</div>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={e => handleSaveDueDate(e.target.value)}
-                style={{ width: '100%', padding: '6px', border: '1px solid #dfe1e6', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }}
-              />
+              <input type="date" value={dueDate} onChange={e => handleSaveDueDate(e.target.value)} style={{ width: '100%', padding: '6px', border: '1px solid #dfe1e6', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
             {/* CHECKLIST */}
@@ -439,9 +413,17 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
               <button onClick={handleAddChecklist} style={{ ...btnPrimary, width: '100%' }}>Add Checklist</button>
             </div>
 
-            {/* DELETE */}
-            <div style={{ marginTop: '20px', borderTop: '1px solid #dfe1e6', paddingTop: '12px' }}>
-              <button onClick={handleDelete} style={{ ...sidebarBtn, background: '#eb5a46', color: 'white', border: 'none', marginBottom: 0 }}>
+            {/* ARCHIVE BUTTON */}
+            <div style={{ marginTop: '16px', borderTop: '1px solid #dfe1e6', paddingTop: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#5e6c84', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Actions</div>
+              <button
+                onClick={handleArchive}
+                disabled={archiving}
+                style={{ ...sidebarBtn, background: '#f4f5f7', color: '#172b4d', marginBottom: '8px', opacity: archiving ? 0.7 : 1 }}
+              >
+                📦 {archiving ? 'Archiving...' : 'Archive'}
+              </button>
+              <button onClick={handleDelete} style={{ ...sidebarBtn, background: '#eb5a46', color: 'white', border: 'none' }}>
                 🗑 Delete Card
               </button>
             </div>
@@ -452,40 +434,11 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete }) {
   );
 }
 
-// ── Styles ──
-const overlayStyle = {
-  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-  background: 'rgba(0,0,0,0.5)', display: 'flex',
-  alignItems: 'flex-start', justifyContent: 'center',
-  zIndex: 1000, overflowY: 'auto', padding: '40px 16px'
-};
-const modalStyle = {
-  background: 'white', borderRadius: '12px',
-  padding: '24px', width: '100%', maxWidth: '680px',
-  minHeight: '400px', position: 'relative'
-};
-const sectionLabel = {
-  fontSize: '12px', fontWeight: '700', color: '#5e6c84',
-  textTransform: 'uppercase', letterSpacing: '0.5px',
-  marginBottom: '8px'
-};
-const btnPrimary = {
-  background: '#0079bf', color: 'white',
-  border: 'none', borderRadius: '4px',
-  padding: '6px 14px', fontSize: '14px',
-  fontWeight: '600', cursor: 'pointer'
-};
-const btnSecondary = {
-  background: 'transparent', color: '#5e6c84',
-  border: '1px solid #dfe1e6', borderRadius: '4px',
-  padding: '6px 14px', fontSize: '14px', cursor: 'pointer'
-};
-const sidebarBtn = {
-  width: '100%', textAlign: 'left',
-  background: '#f4f5f7', color: '#172b4d',
-  border: 'none', borderRadius: '4px',
-  padding: '8px 10px', fontSize: '14px',
-  cursor: 'pointer', fontWeight: '600'
-};
+const overlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, overflowY: 'auto', padding: '40px 16px' };
+const modalStyle = { background: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '680px', minHeight: '400px', position: 'relative' };
+const sectionLabel = { fontSize: '12px', fontWeight: '700', color: '#5e6c84', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' };
+const btnPrimary = { background: '#0079bf', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 14px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' };
+const btnSecondary = { background: 'transparent', color: '#5e6c84', border: '1px solid #dfe1e6', borderRadius: '4px', padding: '6px 14px', fontSize: '14px', cursor: 'pointer' };
+const sidebarBtn = { width: '100%', textAlign: 'left', background: '#f4f5f7', color: '#172b4d', border: 'none', borderRadius: '4px', padding: '8px 10px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' };
 
 export default CardModal;

@@ -1,70 +1,179 @@
-# Getting Started with Create React App
+# Trello Clone
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack Trello-like project management application built with React, Node.js, Express, and MySQL.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Tech Stack
 
-### `npm start`
+| Layer | Technology |
+|---|---|
+| Frontend | React.js (SPA) |
+| Backend | Node.js + Express.js |
+| Database | MySQL |
+| Drag & Drop | @dnd-kit/core, @dnd-kit/sortable |
+| HTTP Client | Axios |
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Features
 
-### `npm test`
+### Core
+- **Multiple Boards** — Create and manage multiple project boards
+- **Lists** — Create, rename, delete, and drag-and-drop to reorder lists
+- **Cards** — Create, edit, delete, and archive cards; drag and drop between lists and within lists
+- **Card Details Modal** — Full card editor with:
+  - Edit title and description
+  - Set due date
+  - Add/remove color labels
+  - Assign/unassign members
+  - Checklists with items (mark complete/incomplete with progress bar)
+  - Delete card
+- **Search** — Real-time search across all card titles on the board
+- **Filters** — Filter cards by due date (overdue / due soon), label color, or assigned member; multiple filters stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Bonus
+- Responsive layout (horizontal scroll for lists on smaller screens)
+- Archive cards (hides from board without deleting)
+- Sample data seeded on setup
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Database Schema
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+boards
+  id, title, background_color, created_at
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+lists
+  id, board_id (FK), title, position, created_at
 
-### `npm run eject`
+cards
+  id, list_id (FK), title, description, due_date, position, is_archived, created_at
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+labels
+  id, card_id (FK), color, text
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+checklists
+  id, card_id (FK), title, created_at
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+checklist_items
+  id, checklist_id (FK), text, is_completed, created_at
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+members
+  id, name, email, created_at
 
-## Learn More
+card_members
+  card_id (FK), member_id (FK)  [composite PK]
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+---
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Setup Instructions
 
-### Code Splitting
+### Prerequisites
+- Node.js v18+
+- MySQL 8+
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 1. Clone the repo
+```bash
+git clone <your-repo-url>
+cd trello-clone
+```
 
-### Analyzing the Bundle Size
+### 2. Database setup
+```bash
+# Create the database
+mysql -u root -p
+CREATE DATABASE trello_clone;
+exit;
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+# Run the schema
+mysql -u root -p trello_clone < server/schema.sql
 
-### Making a Progressive Web App
+# Seed sample data
+mysql -u root -p trello_clone < server/seed.sql
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### 3. Backend setup
+```bash
+cd server
+npm install
+```
 
-### Advanced Configuration
+Create a `.env` file in `/server`:
+```
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=trello_clone
+PORT=5000
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Start the server:
+```bash
+npm start
+```
 
-### Deployment
+Server runs at `http://localhost:5000`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### 4. Frontend setup
+```bash
+cd client
+npm install
+npm start
+```
 
-### `npm run build` fails to minify
+Frontend runs at `http://localhost:3000`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+## Sample Data
+
+The seed file creates:
+- **1 sample board** — "Project Alpha" with a blue background
+- **4 lists** — To Do, In Progress, Review, Done
+- **8 cards** spread across lists with due dates
+- **4 members** — Alice, Bob, Carol, Dave (pre-seeded for assignment)
+
+---
+
+## Assumptions
+
+- No authentication is required. A default user context is assumed to be logged in.
+- Members are pre-seeded in the database and cannot be created through the UI.
+- Archived cards are soft-deleted (hidden from the board, not removed from DB).
+- Card labels are per-card (not global board labels).
+- Drag and drop persists positions to the database after each drop.
+- The filter for labels matches cards that have **at least one** label of the selected color.
+- The filter for members matches cards that have **at least one** assigned member matching the selection.
+- Multiple filters applied simultaneously use AND logic (a card must match all active filters).
+
+---
+
+## Project Structure
+
+```
+trello-clone/
+├── client/                  # React frontend
+│   ├── src/
+│   │   ├── api/index.js     # Axios API calls
+│   │   ├── pages/
+│   │   │   ├── BoardsPage.js
+│   │   │   └── BoardPage.js
+│   │   └── components/
+│   │       ├── List.js
+│   │       ├── Card.js
+│   │       └── CardModal.js
+│   └── package.json
+└── server/                  # Express backend
+    ├── routes/
+    │   ├── boards.js
+    │   ├── lists.js
+    │   └── cards.js
+    ├── db.js
+    ├── schema.sql
+    ├── seed.sql
+    ├── index.js
+    └── package.json
+```

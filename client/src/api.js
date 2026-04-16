@@ -23,6 +23,11 @@ export const deleteCard = (id) => API.delete(`/cards/${id}`);
 export const reorderCards = (cards) => API.put('/cards/reorder/batch', { cards });
 export const moveCard = (id, data) => API.put(`/cards/${id}/move`, data);
 
+// ── ARCHIVE ──
+export const archiveCard = (id) => API.patch(`/cards/${id}/archive`);
+export const restoreCard = (id) => API.patch(`/cards/${id}/restore`);
+export const getArchivedCards = (boardId) => API.get(`/boards/${boardId}/archived-cards`);
+
 // ── LABELS ──
 export const addLabel = (cardId, data) => API.post(`/cards/${cardId}/labels`, data);
 export const removeLabel = (labelId) => API.delete(`/labels/${labelId}`);
