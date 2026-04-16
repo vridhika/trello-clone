@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   getBoard, getMembers, createList, updateList, deleteList,
-  createCard, deleteCard, reorderCards, reorderLists
+  createCard, reorderCards, reorderLists
 } from '../api';
 import { DndContext, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
@@ -47,8 +48,8 @@ function BoardPage({ boardId, onBack }) {
 
   useEffect(() => {
     loadBoard();
-    getMembers().then(res => setMembers(res.data)).catch(console.error);
-  }, [boardId]);
+    loadMembers();
+  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -63,10 +64,16 @@ function BoardPage({ boardId, onBack }) {
       const res = await getBoard(boardId);
       setBoard(res.data);
       setLists(res.data.lists || []);
-      // Only show non-archived cards on the board
       setCards((res.data.cards || []).filter(c => !c.is_archived));
     } catch (err) { console.log('Load Board Error:', err); }
     setLoading(false);
+  };
+
+  const loadMembers = async () => {
+    try {
+      const res = await getMembers();
+      setMembers(res.data);
+    } catch (err) { console.log('Load Members Error:', err); }
   };
 
   const handleAddList = async () => {
@@ -102,7 +109,6 @@ function BoardPage({ boardId, onBack }) {
     setSelectedCard(null);
   };
 
-  // Called when a card is archived from the modal
   const handleArchiveCard = (cardId) => {
     setCards(cards.filter(c => c.id !== cardId));
     setSelectedCard(null);
@@ -175,30 +181,20 @@ function BoardPage({ boardId, onBack }) {
 
   if (loading) return <div style={{ padding: '40px', fontSize: '18px' }}>Loading board...</div>;
 
-  // Show archive page instead of board
   if (showArchive) {
     return <ArchivePage boardId={boardId} onBack={() => setShowArchive(false)} />;
   }
 
   return (
     <div style={{ minHeight: '100vh', background: board?.background_color || '#0079bf' }}>
-
-      {/* HEADER */}
       <div style={{ padding: '12px 16px', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.3)', border: 'none', color: 'white', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>← Back</button>
         <h2 style={{ margin: 0, color: 'white', fontSize: '18px', fontWeight: '700' }}>{board?.title}</h2>
 
-        {/* FILTER BUTTON */}
         <div ref={filterRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowFilterMenu(p => !p)}
-            style={{
-              background: activeFilterCount > 0 ? 'white' : 'rgba(255,255,255,0.25)',
-              color: activeFilterCount > 0 ? '#0079bf' : 'white',
-              border: 'none', padding: '6px 14px', borderRadius: '4px',
-              cursor: 'pointer', fontWeight: '600', fontSize: '14px',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}
+            style={{ background: activeFilterCount > 0 ? 'white' : 'rgba(255,255,255,0.25)', color: activeFilterCount > 0 ? '#0079bf' : 'white', border: 'none', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             🔽 Filter
             {activeFilterCount > 0 && (
@@ -214,7 +210,6 @@ function BoardPage({ boardId, onBack }) {
               {[{ value: 'overdue', label: '🔴 Overdue', desc: 'Past due date' }, { value: 'due_soon', label: '🟡 Due Soon', desc: 'Next 7 days' }].map(opt => (
                 <FilterRow key={opt.value} label={opt.label} desc={opt.desc} active={dueDateFilter === opt.value} onClick={() => setDueDateFilter(p => p === opt.value ? null : opt.value)} />
               ))}
-
               <div style={{ ...filterSectionLabel, marginTop: '12px' }}>🏷 Label</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
                 {LABEL_COLORS.map(l => (
@@ -224,7 +219,6 @@ function BoardPage({ boardId, onBack }) {
                 ))}
               </div>
               {labelFilter && <div style={{ fontSize: '12px', color: '#0079bf', fontWeight: '600', marginBottom: '4px' }}>✓ {LABEL_COLORS.find(l => l.color === labelFilter)?.name}</div>}
-
               <div style={{ ...filterSectionLabel, marginTop: '12px' }}>👤 Member</div>
               {members.length === 0 && <div style={{ fontSize: '13px', color: '#a5adba' }}>No members found</div>}
               {members.map(m => (
@@ -234,7 +228,6 @@ function BoardPage({ boardId, onBack }) {
                   onClick={() => setMemberFilter(p => p === m.id ? null : m.id)}
                 />
               ))}
-
               {activeFilterCount > 0 && (
                 <button onClick={clearAllFilters} style={{ width: '100%', marginTop: '12px', padding: '7px', background: 'transparent', border: '1px solid #dfe1e6', borderRadius: '4px', color: '#eb5a46', fontSize: '13px', cursor: 'pointer', fontWeight: '700' }}>
                   ✕ Clear All Filters
@@ -244,15 +237,10 @@ function BoardPage({ boardId, onBack }) {
           )}
         </div>
 
-        {/* ARCHIVE BUTTON in header */}
-        <button
-          onClick={() => setShowArchive(true)}
-          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
-        >
+        <button onClick={() => setShowArchive(true)} style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}>
           📦 Archive
         </button>
 
-        {/* SEARCH */}
         <input
           placeholder="🔍 Search cards..."
           value={searchTerm}
@@ -261,7 +249,6 @@ function BoardPage({ boardId, onBack }) {
         />
       </div>
 
-      {/* ACTIVE FILTER BANNER */}
       {activeFilterLabels.length > 0 && (
         <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ color: 'white', fontSize: '13px', fontWeight: '600' }}>Filtering by:</span>
@@ -272,7 +259,6 @@ function BoardPage({ boardId, onBack }) {
         </div>
       )}
 
-      {/* LISTS */}
       <div style={{ display: 'flex', padding: '16px', gap: '12px', overflowX: 'auto', alignItems: 'flex-start' }}>
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
           <SortableContext items={lists.map(l => l.id)} strategy={horizontalListSortingStrategy}>

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect } from 'react';
 import {
   getCard, updateCard, deleteCard,
@@ -223,7 +224,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
       <div style={modalStyle}>
 
-        {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ flex: 1, marginRight: '12px' }}>
             <div style={{ fontSize: '12px', color: '#5e6c84', marginBottom: '4px' }}>📋 Card</div>
@@ -246,19 +246,14 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
         </div>
 
         <div style={{ display: 'flex', gap: '16px' }}>
-          {/* LEFT COLUMN */}
           <div style={{ flex: 1 }}>
 
-            {/* LABELS */}
             {labels.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={sectionLabel}>Labels</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {labels.map(l => (
-                    <span
-                      key={l.id}
-                      onClick={() => handleRemoveLabel(l.id)}
-                      title="Click to remove"
+                    <span key={l.id} onClick={() => handleRemoveLabel(l.id)} title="Click to remove"
                       style={{ background: l.color, color: 'white', borderRadius: '4px', padding: '4px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', minWidth: '40px', display: 'inline-block' }}>
                       {l.text || '\u00A0'}
                     </span>
@@ -267,7 +262,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               </div>
             )}
 
-            {/* MEMBERS */}
             {members.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={sectionLabel}>Members</div>
@@ -281,7 +275,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               </div>
             )}
 
-            {/* DUE DATE */}
             {dueDate && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={sectionLabel}>Due Date</div>
@@ -291,7 +284,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               </div>
             )}
 
-            {/* DESCRIPTION */}
             <div style={{ marginBottom: '16px' }}>
               <div style={sectionLabel}>📝 Description</div>
               {editingDesc ? (
@@ -314,7 +306,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               )}
             </div>
 
-            {/* CHECKLISTS */}
             {checklists.map(cl => (
               <div key={cl.id} style={{ marginBottom: '20px' }}>
                 <div style={sectionLabel}>☑ {cl.title}</div>
@@ -346,11 +337,9 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
             ))}
           </div>
 
-          {/* RIGHT SIDEBAR */}
           <div style={{ width: '168px' }}>
             <div style={sectionLabel}>Add to card</div>
 
-            {/* LABELS */}
             <div style={{ position: 'relative', marginBottom: '8px' }}>
               <button onClick={() => { setShowLabelPicker(!showLabelPicker); setShowMemberPicker(false); }} style={sidebarBtn}>
                 🏷 Labels
@@ -369,7 +358,6 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               )}
             </div>
 
-            {/* MEMBERS */}
             <div style={{ position: 'relative', marginBottom: '8px' }}>
               <button onClick={() => { setShowMemberPicker(!showMemberPicker); setShowLabelPicker(false); }} style={sidebarBtn}>
                 👤 Members
@@ -394,13 +382,11 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               )}
             </div>
 
-            {/* DUE DATE */}
             <div style={{ marginBottom: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#5e6c84', marginBottom: '4px' }}>📅 Due Date</div>
               <input type="date" value={dueDate} onChange={e => handleSaveDueDate(e.target.value)} style={{ width: '100%', padding: '6px', border: '1px solid #dfe1e6', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' }} />
             </div>
 
-            {/* CHECKLIST */}
             <div style={{ marginBottom: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#5e6c84', marginBottom: '4px' }}>☑ Checklist</div>
               <input
@@ -413,14 +399,9 @@ function CardModal({ card: initialCard, onClose, onUpdate, onDelete, onArchive }
               <button onClick={handleAddChecklist} style={{ ...btnPrimary, width: '100%' }}>Add Checklist</button>
             </div>
 
-            {/* ARCHIVE BUTTON */}
             <div style={{ marginTop: '16px', borderTop: '1px solid #dfe1e6', paddingTop: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: '700', color: '#5e6c84', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Actions</div>
-              <button
-                onClick={handleArchive}
-                disabled={archiving}
-                style={{ ...sidebarBtn, background: '#f4f5f7', color: '#172b4d', marginBottom: '8px', opacity: archiving ? 0.7 : 1 }}
-              >
+              <button onClick={handleArchive} disabled={archiving} style={{ ...sidebarBtn, background: '#f4f5f7', color: '#172b4d', marginBottom: '8px', opacity: archiving ? 0.7 : 1 }}>
                 📦 {archiving ? 'Archiving...' : 'Archive'}
               </button>
               <button onClick={handleDelete} style={{ ...sidebarBtn, background: '#eb5a46', color: 'white', border: 'none' }}>
